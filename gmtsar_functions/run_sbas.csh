@@ -38,7 +38,10 @@ echo ""
 # read parameters from configuration file
 #
 set wavelength = `grep radar_wavelength $1 | awk '{print $3}'`
-#set near_range = `grep near_range $1 | awk '{print $3}'`
+set rng_samp_rate = `grep rng_samp_rate $1 | awk 'NR==1{print}' | awk '{print $3}'`
+set near_range = `grep near_range $1 | awk '{print $3}'`
+set speed_of_light = 300000000
+
 if ( $#argv > 2 ) then
   set smooth = $3
 else
@@ -56,14 +59,14 @@ endif
 set firstifg = `head -n1 $2`
 set xdim = `gmt grdinfo -C $firstifg | awk '{print $10}'`
 set ydim = `gmt grdinfo -C $firstifg | awk '{print $11}'`
-
+set xmin = `gmt grdinfo -C $firstifg | awk '{print $2}'`
+set xmax = `gmt grdinfo -C $firstifg | awk '{print $3}'`
 #
 # TODO: compute incidence angle and center range?
 #
 # use sbas default values for now:
 set incidence = 37
-set range = 866000
-
+set range = `echo "$speed_of_light*($xmin+$xmax)/8/$rng_samp_rate+$near_range" | bc`
 #
 # delete and recreate the SBAS directory
 #
@@ -84,10 +87,10 @@ foreach unwrap (`awk '{print $0}' $2`)
   set corr = "../$dir/corr.grd"
   set day1 = `basename $dir | cut -f 1 -d _`
   set day2 = `basename $dir | cut -f 2 -d _`
-  set matchline = `grep " $day1." raw/baseline_table.dat`
+  set matchline = `grep " $day1." ../F2/raw/baseline_table.dat`
   set numday1 = `echo $matchline | awk '{print $3}'`
   set bperp1 = `echo $matchline | awk '{print $5}'`
-  set matchline = `grep " $day2." raw/baseline_table.dat`
+  set matchline = `grep " $day2." ../F2/raw/baseline_table.dat`
   set numday2 = `echo $matchline | awk '{print $3}'`
   set bperp2 = `echo $matchline | awk '{print $5}'`
   set d_bperp = `echo $bperp1 $bperp2 |awk '{print $2-$1}'`
@@ -117,7 +120,7 @@ set S = `wc -l SBAS/scene.tab |awk '{print $1}'`
 cd SBAS
 set commandline = "intf.tab scene.tab $N $S $xdim $ydim -atm $n_atm -smooth $smooth -wavelength $wavelength -incidence $incidence -range $range -rms -dem"
 echo "sbas $commandline"
-sbas $commandline
+#sbas $commandline
 
 cd ..
 echo ""
